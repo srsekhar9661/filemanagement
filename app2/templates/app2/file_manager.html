@@ -1,0 +1,507 @@
+{% extends 'app2/base.html' %}
+{% load i18n %}  <!-- Load the i18n tag library -->
+
+{% block body %}
+
+<style>
+    /* Modal styles */
+    #file-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: auto;
+    }
+    
+    #modal-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        max-width: 90%;
+        max-height: 90%;
+        position: relative;
+    }
+
+    #file-display iframe,
+    #file-display img {
+        height: 80%;
+        width: 90%;   
+        max-height: 100%;
+        max-width: 100%;
+    }
+
+    #file-display iframe{
+        height: 80vh;
+        width: 130vh;    
+    }
+
+    #close-modal {
+        position: absolute;
+        top: 10px;
+        right: 20px;
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    .popFileDiv {
+        max-width: 90%;
+        max-height: 90%;
+    }
+</style>
+
+
+
+<style>
+    
+    
+       
+    
+    #file-display img {
+        max-width: 100%;
+        max-height: 80vh;
+    }
+    
+    /* Styles for file and folder cards */
+    .file, .folder {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin: 10px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    
+    .file:hover, .folder:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .file i, .folder i {
+        display: block;
+        font-size: 24px;
+        margin-bottom: 10px;
+    }
+    
+    .file a, .folder a {
+        text-decoration: none;
+        color: #333;
+    }
+    
+    .file a:hover, .folder a:hover {
+        text-decoration: underline;
+    }
+
+    #file-content{
+        background-color: whitesmoke;
+        display: flex;
+        justify-content: space-evenly;
+    }
+
+    .popFileDiv{
+        width : 140vh;
+        height : 100vh;
+    }
+
+    .file-display{
+        width : 140vh;
+        height : 100vh;
+    }
+
+    .file-display > iframe {
+        width : 140vh;
+        height : 100vh;
+    }
+
+</style>
+
+<style>
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        max-width: 90%;
+        max-height: 90%;
+        overflow: auto;
+        text-align: center;
+        position: relative;
+    }
+
+    .close-modal {
+        position: absolute;
+        top: 10px;
+        right: 20px;
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    .nav-bar{
+        background-color: whitesmoke;
+    }
+
+    .btns{
+        display: flex;
+        justify-content: space-around;
+        padding: 10px 0px;
+    }
+    
+</style>
+
+<nav aria-label="Breadcrumbs" class="nav-bar">
+    <div id="breadcrumb-container" class="breadcrumbs">
+        <a class="btn btn-primary" href="{% url 'file_manager' %}">{% translate 'Home' %}</a>
+    </div>
+</nav>
+
+<div class="btns">
+    <!-- Add Folder Button -->
+    <button id="add-folder-btn" class="btn btn-primary">Add Folder</button>
+
+    <!-- Add Upload File Button -->
+    <button id="upload-file-btn" class="btn btn-primary">Upload File</button>
+
+</div>
+
+<!-- Upload File Modal -->
+<div id="upload-file-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close-modal" id="close-upload-file-modal">&times;</span>
+        <h2>Upload New File</h2>
+        <form id="upload-file-form" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Choose File:</label>
+                <input type="file" id="file" name="file" required>
+                <input type="hidden" id="upload-path" name="upload_path" value="{{ current_path }}">
+            </div>
+            <button type="submit" class="btn btn-primary">Upload File</button>
+        </form>
+    </div>
+</div>
+
+
+
+<!-- Add Folder Modal -->
+<div id="add-folder-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close-modal" id="close-add-folder-modal">&times;</span>
+        <h2>Create New Folder</h2>
+        <form id="add-folder-form">
+            <div class="form-group">
+                <label for="folder-name">Folder Name:</label>
+                <input type="text" id="folder-name" name="folder_name" required>
+                <input type="hidden" id="current_path" name="current_path" value="{{current_path}}">
+            </div>
+            <button type="submit" class="btn btn-primary">Create Folder</button>
+        </form>
+    </div>
+</div>
+
+
+<div class="container">
+    <div id="file-content" class="row">
+        {% for folder in folders %}
+            <div class="folder col-3" data-path="{{ current_path }}/{{ folder }}">
+                <i class="fa fa-folder" aria-hidden="true"></i>
+                <div>{{ folder }}</div>
+            </div>
+        {% endfor %}
+        
+        {% for file in files %}
+            <div class="file col-3" data-file-url="{{ MEDIA_URL }}/{{ file.file_path }}">
+                <i class="fa fa-file" aria-hidden="true"></i>
+                <div>{{ file.file_name }}</div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<!-- Popup Modal for File Display -->
+<div id="file-modal" style="display:none;">
+    <div id="modal-content" class="popFileDiv">
+        <span id="close-modal">&times;</span>
+        <div id="file-display" class="fileDiv" ></div>
+        <!-- <div id="pdf-viewer" style="height: 80vh;"></div>j -->
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // When a folder is clicked
+        $('#file-content').on('click', '.folder', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+    
+            // Get the path of the clicked folder
+            var folderPath = $(this).data('path');
+            loadFolderContents(folderPath);
+        });
+    
+        // When a breadcrumb link is clicked
+        $('#breadcrumb-container').on('click', 'a', function(e) {
+            e.preventDefault();
+            var breadcrumbPath = $(this).data('path');
+            
+            // If the Home link is clicked, use an empty path
+            if ($(this).text().trim() === '{% translate "Home" %}') {
+                breadcrumbPath = '';
+            }
+            
+            loadFolderContents(breadcrumbPath);
+        });
+    
+        // Load folder contents and update breadcrumb
+        function loadFolderContents(path) {
+            $.ajax({
+                url: '/get-folder-contents/',
+                type: 'GET',
+                data: {
+                    'path': path
+                },
+                success: function(data) {
+                    console.log('AJAX success:', data);
+    
+                    // Clear the current content
+                    $('#file-content').empty();
+    
+                    // Add new folder contents dynamically
+                    $.each(data.folders, function(index, folder) {
+                        $('#file-content').append(
+                            '<div class="folder col-3" data-path="' + data.current_path + '/' + folder + '">' +
+                            '<i class="fa fa-folder" aria-hidden="true"></i>' +
+                            '<div>' + folder + '</div>' +
+                            '</div>'
+                        );
+                    });
+    
+                    // Add new file contents dynamically
+                    $.each(data.files, function(index, file) {
+                        $('#file-content').append(
+                            '<div class="file col-3" data-file-url="' + data.MEDIA_URL + file.file_path + '">' +
+                            '<i class="fa fa-file" aria-hidden="true"></i>' +
+                            '<div>' + file.file_name + '</div>' +
+                            '</div>'
+                        );
+                    });
+    
+                    $('#current_path').val(data.current_path);
+
+                    $('#upload-path').val(data.current_path);
+    
+                    // Update breadcrumbs
+                    updateBreadcrumbs(data.current_path);
+                },
+                error: function(xhr, status, error) {
+                    console.log("AJAX error: " + error);
+                }
+            });
+        }
+    
+        // Update the breadcrumb navigation
+        function updateBreadcrumbs(path) {
+            // Remove the leading slash if it exists
+            if (path.startsWith('/')) {
+                path = path.slice(1);
+            }
+    
+            // Split the path into parts
+            var pathParts = path.split('/');
+    
+            var main_url = '{% url "file_manager" %}';
+    
+            // Initialize an empty string for the breadcrumb HTML
+            var breadcrumbHtml = `<a href="${main_url}" class="btn btn-primary" data-path="">{% translate "Home" %}</a>`;
+    
+            // Initialize a variable to hold the cumulative path
+            var cumulativePath = '';
+    
+            // Iterate over the path parts to create the breadcrumb links
+            $.each(pathParts, function(index, part) {
+                if (part.trim() === '') {
+                    return; // Skip empty parts
+                }
+    
+                // Update the cumulative path
+                cumulativePath += '/' + part;
+    
+                // Create the breadcrumb link
+                breadcrumbHtml += ' &gt; <a href="#" class="btn btn-primary" data-path="' + cumulativePath + '">' + part + '</a>';
+            });
+    
+            // Append the breadcrumbs to the container
+            $('#breadcrumb-container').html(breadcrumbHtml);
+        }
+    
+        // Handle file click
+        $('#file-content').on('click', '.file', function(e) {
+            e.preventDefault();
+            
+            // Get the URL of the clicked file
+            var fileUrl = $(this).data('file-url');
+            var fileExtension = fileUrl.split('.').pop().toLowerCase();
+    
+            // Load the content into the modal based on the file type
+            var fileDisplay = $('#file-display');
+            fileDisplay.empty();
+    
+            console.log('File URL:', fileUrl);
+    
+            if (fileExtension === 'pdf') {
+                // Directly set the iframe src to ensure the PDF loads correctly
+                $('#file-display').html('<iframe src="' + fileUrl + '" type="application/pdf" width="100%" height="100%" frameborder="0"></iframe>');
+            } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+                $('#file-display').html('<img src="' + fileUrl + '" alt="File Image" class="img-fluid" />');
+            } else {
+                $('#file-display').html('<p>Unsupported file format.</p>');
+            }
+    
+            // Show the modal
+            $('#file-modal').show();
+        });
+     
+        // Handle modal close
+        $('#close-modal').on('click', function() {
+            $('#file-modal').hide();
+        });
+    
+        // Show the add folder modal when the button is clicked
+        $('#add-folder-btn').on('click', function() {
+            $('#add-folder-modal').show();
+        });
+    
+        // Hide the modal when the close button is clicked
+        $('#close-add-folder-modal').on('click', function() {
+            $('#add-folder-modal').hide();
+        });
+    
+        // Handle form submission
+        $('#add-folder-form').on('submit', function(e) {
+            e.preventDefault();
+        
+            var folderName = $('#folder-name').val();
+            var currentPath = $('#current_path').val();
+        
+            $.ajax({
+                url: '/create-folder/',
+                type: 'POST',
+                data: {
+                    'folder_name': folderName,
+                    'current_path': currentPath,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    $('#file-content').append(
+                        '<div class="folder" data-path="' + data.new_folder_path + '">' +
+                        '<i class="fa fa-folder" aria-hidden="true"></i>' +
+                        '<div>' + folderName + '</div>' +
+                        '</div>'
+                    );
+                    $('#add-folder-modal').hide();
+                },
+                error: function(xhr, status, error) {
+                    console.log("AJAX error: " + error);
+                }
+            });
+        });
+    });
+    
+</script>
+
+<script>
+    $(document).ready(function() {
+        // Handle file click
+        $('#file-content').on('click', '.file', function(e) {
+            e.preventDefault();
+            
+            var fileUrl = $(this).data('file-url');
+            var fileExtension = fileUrl.split('.').pop().toLowerCase();
+            var fileDisplay = $('#file-display');
+            fileDisplay.empty();
+
+            if (fileExtension === 'pdf') {
+                fileDisplay.html('<iframe src="' + fileUrl + '" type="application/pdf" frameborder="0"></iframe>');
+            } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+                fileDisplay.html('<img src="' + fileUrl + '" alt="File Image" class="img-fluid" />');
+            } else {
+                fileDisplay.html('<p>Unsupported file format.</p>');
+            }
+    
+            $('#file-modal').show();
+        });
+    
+        // Close modal when clicking on close button
+        $('#close-modal').on('click', function() {
+            $('#file-modal').hide();
+        });
+
+        // Close modal when clicking outside of modal content
+        $('#file-modal').on('click', function(e) {
+            if ($(e.target).closest('#modal-content').length === 0) {
+                $('#file-modal').hide();
+            }
+        });
+    });
+</script>
+
+<script>
+    $(document).ready(function() {
+        // Show the upload file modal when the button is clicked
+        $('#upload-file-btn').on('click', function() {
+            $('#upload-file-modal').show();
+        });
+    
+        // Hide the upload file modal when the close button is clicked
+        $('#close-upload-file-modal').on('click', function() {
+            $('#upload-file-modal').hide();
+        });
+    
+        // Handle file upload form submission
+        $('#upload-file-form').on('submit', function(e) {
+            e.preventDefault();
+    
+            var formData = new FormData(this);
+    
+            $.ajax({
+                url: '/upload-file/',
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(data) {
+                    // Add the new file to the file list
+                    $('#file-content').append(
+                        '<div class="file col-3" data-file-url="' + data.file_url + '">' +
+                        '<i class="fa fa-file" aria-hidden="true"></i>' +
+                        '<div>' + data.file_name + '</div>' +
+                        '</div>'
+                    );
+                    $('#upload-file-modal').hide();
+                },
+                error: function(xhr, status, error) {
+                    console.log("AJAX error: " + error);
+                }
+            });
+        });
+    });
+    
+</script>
+
+
+{% endblock %}
